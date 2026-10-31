@@ -1,0 +1,121 @@
+CREATE DATABASE IF NOT EXISTS db_sgrh CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
+USE db_sgrh;
+
+CREATE TABLE Sucursal (
+  id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  direccion VARCHAR(100) NOT NULL,
+  nombre VARCHAR(30) NOT NULL,
+  telefono VARCHAR(12),
+  ubigeo CHAR(6)
+);
+
+CREATE TABLE EstadoOperativo (
+  idEstado TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  descripcion VARCHAR(20) NOT NULL UNIQUE
+);
+
+CREATE TABLE Habitacion (
+  id CHAR(4) PRIMARY KEY,
+  tipo VARCHAR(15) NOT NULL,
+  piso TINYINT NOT NULL,
+  aforo TINYINT UNSIGNED NOT NULL,
+  precioBase DECIMAL(10,2) NOT NULL,
+  idEstado TINYINT UNSIGNED NOT NULL,
+  idSucursal TINYINT UNSIGNED NOT NULL,
+  FOREIGN KEY (idEstado) REFERENCES EstadoOperativo(idEstado),
+  FOREIGN KEY (idSucursal) REFERENCES Sucursal(id)
+);
+
+CREATE TABLE Servicio (
+  id TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  descripcion VARCHAR(100) NOT NULL,
+  precioBase DECIMAL(10,2) NOT NULL,
+  categoria VARCHAR(10) NOT NULL,
+  estado VARCHAR(10) NOT NULL DEFAULT 'ACTIVO'
+);
+
+CREATE TABLE Turno (
+  idTurno TINYINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  descripcion VARCHAR(30) NOT NULL,
+  horaInicio TIME NOT NULL,
+  horaFin TIME NOT NULL
+);
+
+CREATE TABLE Persona (
+  docId VARCHAR(11) PRIMARY KEY,
+  nombres VARCHAR(100) NOT NULL,
+  apellidos VARCHAR(100) NOT NULL,
+  correo VARCHAR(100) NOT NULL UNIQUE,
+  nacionalidad VARCHAR(20),
+  fechaNac DATE NOT NULL,
+  sexo BOOLEAN,
+  telefono VARCHAR(15) UNIQUE
+);
+
+CREATE TABLE Recepcionista (
+  idEmpleado INT AUTO_INCREMENT PRIMARY KEY,
+  docId VARCHAR(11) NOT NULL UNIQUE,
+  correo VARCHAR(100) NOT NULL UNIQUE,
+  idTurno TINYINT UNSIGNED NOT NULL,
+  estado VARCHAR(10) NOT NULL DEFAULT 'ACTIVO',
+  FOREIGN KEY (docId) REFERENCES Persona(docId),
+  FOREIGN KEY (idTurno) REFERENCES Turno(idTurno)
+);
+
+-- NUEVA: credenciales y rol para el login
+CREATE TABLE Usuario (
+  idUsuario INT AUTO_INCREMENT PRIMARY KEY,
+  docId VARCHAR(11) NOT NULL UNIQUE,
+  passwordHash VARCHAR(255) NOT NULL,
+  rol ENUM('ADMIN','RECEPCIONISTA') NOT NULL,
+  estado VARCHAR(10) NOT NULL DEFAULT 'ACTIVO',
+  FOREIGN KEY (docId) REFERENCES Persona(docId)
+);
+
+CREATE TABLE Reserva (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  fechaReserva DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  fechaEntrada DATETIME NOT NULL,
+  fechaSalida DATETIME NOT NULL,
+  estado VARCHAR(20) NOT NULL DEFAULT 'PENDIENTE',
+  totalReserva DECIMAL(10,2) NOT NULL DEFAULT 0,
+  totalServicios DECIMAL(10,2) NOT NULL DEFAULT 0,
+  idEmpleado INT NOT NULL,
+  docIdCliente VARCHAR(11) NOT NULL,
+  idHabitacion CHAR(4) NOT NULL,
+  FOREIGN KEY (idEmpleado) REFERENCES Recepcionista(idEmpleado),
+  FOREIGN KEY (docIdCliente) REFERENCES Persona(docId),
+  FOREIGN KEY (idHabitacion) REFERENCES Habitacion(id),
+  CHECK (fechaSalida > fechaEntrada),
+  INDEX idx_reserva_habitacion_fechas (idHabitacion, fechaEntrada, fechaSalida)
+);
+
+CREATE TABLE ReservaHuesped (
+  idReserva INT NOT NULL,
+  docId VARCHAR(11) NOT NULL,
+  esTitular BOOLEAN NOT NULL DEFAULT FALSE,
+  PRIMARY KEY (idReserva, docId),
+  FOREIGN KEY (idReserva) REFERENCES Reserva(id),
+  FOREIGN KEY (docId) REFERENCES Persona(docId)
+);
+
+CREATE TABLE Pago (
+  id INT AUTO_INCREMENT PRIMARY KEY,
+  fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  monto DECIMAL(10,2) NOT NULL CHECK (monto > 0),
+  metodo VARCHAR(20) NOT NULL,
+  estado VARCHAR(20) NOT NULL DEFAULT 'COMPLETADO',
+  idReserva INT NOT NULL,
+  FOREIGN KEY (idReserva) REFERENCES Reserva(id)
+);
+
+CREATE TABLE DetalleServicio (
+  idDetalle INT AUTO_INCREMENT PRIMARY KEY,
+  idReserva INT NOT NULL,
+  idServicio TINYINT UNSIGNED NOT NULL,
+  fecha DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  cantidad TINYINT UNSIGNED NOT NULL CHECK (cantidad > 0),
+  precio DECIMAL(10,2) NOT NULL,
+  FOREIGN KEY (idReserva) REFERENCES Reserva(id),
+  FOREIGN KEY (idServicio) REFERENCES Servicio(id)
+);
